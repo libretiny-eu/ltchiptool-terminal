@@ -24,6 +24,17 @@ class SerialMixin(Serial):
         ...
 
 
+class SerialHook:
+    def on_serial_receive(self, data: bytes) -> bool | None:
+        pass
+
+    def on_serial_open(self, port: str) -> None:
+        pass
+
+    def on_serial_close(self, port: str) -> None:
+        pass
+
+
 class TerminalPanel(BasePanel):
     Flash: FlashPanel = None
     FlashPortsUpdated: Callable[[list[tuple[str, bool, str]]], None] = None
@@ -31,6 +42,7 @@ class TerminalPanel(BasePanel):
     delayed_port: str | None = None
     ports_busy: set[str]
     serial: SerialMixin = None
+    hooks: list[SerialHook] = None
     newlines = {
         (False, False): b"",
         (False, True): b"\n",
@@ -69,6 +81,7 @@ class TerminalPanel(BasePanel):
 
         # noinspection PyTypeChecker
         self.serial = Serial()
+        self.hooks = []
         ColorPalette.get().apply(self.Text)
         self.Text.SetDefaultStyle(wx.TextAttr(ColorPalette.get()[self.fg]))
 
@@ -210,6 +223,8 @@ class TerminalPanel(BasePanel):
             self.serial.port = self.real_port
             self.serial.baudrate = self.baudrate
             self.serial.open_real_terminal()
+            for hook in self.hooks:
+                hook.on_serial_open(self.serial.port)
             self.DoUpdate()
             self.StartWork(
                 TerminalThread(
@@ -226,9 +241,27 @@ class TerminalPanel(BasePanel):
     def PortClose(self) -> None:
         self.StopWork(TerminalThread)
         self.serial.close_real_terminal()
+        for hook in self.hooks:
+            hook.on_serial_close(self.serial.port)
         # this freezes the app
         # self.DoUpdate()
         self.Port.Enable(True)
+
+    def PortWrite(self, data: bytes) -> None:
+        if not self.serial.is_open:
+            return
+        self.serial.write(data)
+
+    def PortIsOpen(self) -> bool:
+        return self.serial.is_open
+
+    def PortAddHook(self, hook: SerialHook) -> None:
+        if hook not in self.hooks:
+            self.hooks.append(hook)
+
+    def PortRemoveHook(self, hook: SerialHook) -> None:
+        if hook in self.hooks:
+            self.hooks.remove(hook)
 
     def OnPortsUpdated(self, ports: list[tuple[str, bool, str]]) -> None:
         user_port = self.port or self.delayed_port
@@ -264,6 +297,9 @@ class TerminalPanel(BasePanel):
         self.serial.write(text)
 
     def OnSerialData(self, data: bytes) -> None:
+        for hook in self.hooks:
+            if hook.on_serial_receive(data) is True:
+                return
         data = data.replace(b"\r\n", b"\n")
         data = data.replace(b"\r", b"")
         text = data.decode("utf-8", errors="replace")
