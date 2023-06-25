@@ -25,7 +25,7 @@ class SerialMixin(Serial):
 
 
 class SerialHook:
-    def on_serial_receive(self, data: bytes) -> bool | None:
+    def on_serial_receive(self, data: bytes) -> bytes | None:
         pass
 
     def on_serial_open(self, port: str) -> None:
@@ -298,8 +298,11 @@ class TerminalPanel(BasePanel):
 
     def OnSerialData(self, data: bytes) -> None:
         for hook in self.hooks:
-            if hook.on_serial_receive(data) is True:
-                return
+            data_new = hook.on_serial_receive(data)
+            if data_new is not None:
+                data = data_new
+        if not data:
+            return
         data = data.replace(b"\r\n", b"\n")
         data = data.replace(b"\r", b"")
         text = data.decode("utf-8", errors="replace")
