@@ -346,7 +346,7 @@ class TerminalPanel(BasePanel):
 
     @property
     def port(self) -> str | None:
-        if self.Port.GetSelection() in [wx.NOT_FOUND, 0]:
+        if self.Port.GetSelection() in [wx.NOT_FOUND, 0] or not self.Flash:
             return None
         return self.Flash.ports[self.Port.GetSelection() - 1][0]
 
@@ -366,7 +366,7 @@ class TerminalPanel(BasePanel):
 
     @property
     def real_port(self) -> str | None:
-        return self.port or self.Flash.port
+        return self.port or (self.Flash and self.Flash.port)
 
     @property
     def baudrate(self) -> int:
