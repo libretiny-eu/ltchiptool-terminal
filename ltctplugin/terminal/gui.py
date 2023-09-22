@@ -76,6 +76,7 @@ class TerminalPanel(BasePanel):
         self.BoxScroll = self.BindCheckBox("checkbox_scroll")
         self.BoxAuto = self.BindCheckBox("checkbox_auto")
         self.BoxEcho = self.BindCheckBox("checkbox_echo")
+        self.BoxClear = self.BindCheckBox("checkbox_clear")
         self.Text: wx.TextCtrl = self.FindWindowByName("text_console", self)
         self.Text.SetDefaultStyle(wx.TextAttr(wx.WHITE))
         self.Text.Bind(wx.EVT_CHAR, self.OnKeyEvent)
@@ -96,6 +97,7 @@ class TerminalPanel(BasePanel):
             scroll=self.scroll,
             auto=self.auto,
             echo=self.echo,
+            clear=self.clear,
         )
 
     def SetSettings(
@@ -108,6 +110,7 @@ class TerminalPanel(BasePanel):
         scroll: bool = None,
         auto: bool = None,
         echo: bool = None,
+        clear: bool = None,
         **_,
     ) -> None:
         self.port = port
@@ -125,6 +128,8 @@ class TerminalPanel(BasePanel):
             self.auto = auto
         if echo is not None:
             self.echo = echo
+        if clear is not None:
+            self.clear = clear
 
     def OnShow(self) -> None:
         self.Flash = self.Frame.Panels["flash"]
@@ -239,6 +244,8 @@ class TerminalPanel(BasePanel):
                 ),
                 freeze_ui=False,
             )
+            if self.clear:
+                self.Text.Clear()
         except Exception as e:
             exception(f"Couldn't open {self.port}", exc_info=e)
             self.PortClose()
@@ -431,3 +438,11 @@ class TerminalPanel(BasePanel):
     @echo.setter
     def echo(self, value: bool) -> None:
         self.BoxEcho.SetValue(value)
+
+    @property
+    def clear(self) -> bool:
+        return self.BoxClear.IsChecked()
+
+    @clear.setter
+    def clear(self, value: bool) -> None:
+        self.BoxClear.SetValue(value)

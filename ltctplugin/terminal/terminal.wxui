@@ -89,6 +89,10 @@
               checked="1"
               label="Local Echo"
               var_name="checkbox_echo" />
+            <node
+              class="wxCheckBox"
+              label="Auto Clear"
+              var_name="checkbox_clear" />
           </node>
           <node
             class="wxBoxSizer"
