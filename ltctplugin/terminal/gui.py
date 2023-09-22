@@ -1,5 +1,6 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-5-22.
 
+from logging import exception
 from typing import Callable
 
 import wx.xrc
@@ -10,7 +11,7 @@ from ltchiptool.gui.utils import on_event, with_event
 from ltchiptool.gui.work.base import BaseThread
 from ltchiptool.gui.work.flash import FlashThread
 from ltchiptool.gui.work.ports import PortWatcher
-from ltchiptool.util.logging import LoggingHandler, verbose
+from ltchiptool.util.logging import verbose
 from serial import Serial
 
 from ltctplugin.terminal.work import TerminalThread
@@ -176,7 +177,7 @@ class TerminalPanel(BasePanel):
         self.Port.Enable(not self.serial.is_open)
 
     def OnSerialOpen(self, s: SerialMixin) -> None:
-        if s.port.lower() == self.real_port.lower():
+        if s.port and s.port.lower() == self.real_port.lower():
             # free the port for others
             self.PortClose()
         s.open_real_terminal()
@@ -193,12 +194,16 @@ class TerminalPanel(BasePanel):
     def OnWorkStopped(self, t: BaseThread) -> None:
         verbose(f"OnWorkStopped({type(t)})")
         if isinstance(t, FlashThread) and self.auto:
+            if self.FlashWorkStopped:
+                self.FlashWorkStopped(t)
             # flashing ended - open the port automatically
             # also switch and open non-flashing ports
             self.PortOpen()
             if self.serial.is_open:
                 # switch to terminal tab
                 self.Frame.NotebookPagePanel = self
+        if isinstance(t, TerminalThread):
+            self.PortClose()
 
     @on_event
     def OnOpenClick(self) -> None:
@@ -235,7 +240,7 @@ class TerminalPanel(BasePanel):
                 freeze_ui=False,
             )
         except Exception as e:
-            LoggingHandler.get().emit_exception(e, msg=f"Couldn't open {self.port}")
+            exception(f"Couldn't open {self.port}", exc_info=e)
             self.PortClose()
 
     def PortClose(self) -> None:
@@ -243,9 +248,7 @@ class TerminalPanel(BasePanel):
         self.serial.close_real_terminal()
         for hook in self.hooks:
             hook.on_serial_close(self.serial.port)
-        # this freezes the app
-        # self.DoUpdate()
-        self.Port.Enable(True)
+        self.DoUpdate()
 
     def PortWrite(self, data: bytes) -> None:
         if not self.serial.is_open:
