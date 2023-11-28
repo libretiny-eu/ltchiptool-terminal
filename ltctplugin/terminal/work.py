@@ -111,3 +111,4 @@ class TerminalThread(BaseThread):
 
     def stop(self) -> None:
         super().stop()
+        self.s.close()

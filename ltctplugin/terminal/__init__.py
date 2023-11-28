@@ -1,14 +1,19 @@
 #  Copyright (c) Kuba Szczodrzyński 2023-5-22.
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from ltctplugin.base import PluginBase
+from semantic_version.base import BaseSpec, SimpleSpec
 
 
 class Plugin(PluginBase):
     @property
     def title(self) -> str:
         return "Terminal"
+
+    @property
+    def ltchiptool_version(self) -> Optional[BaseSpec]:
+        return SimpleSpec(">=4.9.0")
 
     @property
     def has_cli(self) -> bool:

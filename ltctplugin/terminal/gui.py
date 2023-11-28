@@ -5,12 +5,12 @@ from typing import Callable
 
 import wx.xrc
 from ltchiptool.gui.colors import ColorPalette
+from ltchiptool.gui.mixin.devices import DevicesBase
 from ltchiptool.gui.panels.base import BasePanel
 from ltchiptool.gui.panels.flash import FlashPanel
 from ltchiptool.gui.utils import on_event, with_event
 from ltchiptool.gui.work.base import BaseThread
 from ltchiptool.gui.work.flash import FlashThread
-from ltchiptool.gui.work.ports import PortWatcher
 from ltchiptool.util.logging import verbose
 from serial import Serial
 
@@ -36,11 +36,11 @@ class SerialHook:
         pass
 
 
-class TerminalPanel(BasePanel):
+class TerminalPanel(BasePanel, DevicesBase):
     Flash: FlashPanel = None
-    FlashPortsUpdated: Callable[[list[tuple[str, bool, str]]], None] = None
     FlashWorkStopped: Callable[[BaseThread], None] = None
     delayed_port: str | None = None
+    ports: list[tuple[str, bool, str]]
     ports_busy: set[str]
     serial: SerialMixin = None
     hooks: list[SerialHook] = None
@@ -60,10 +60,11 @@ class TerminalPanel(BasePanel):
         self.LoadXRC("TerminalPanel")
         self.AddToNotebook("Terminal")
 
+        self.ports = []
         self.ports_busy = set()
 
         self.Port = self.BindComboBox("combo_port")
-        self.Rescan = self.BindButton("button_rescan", lambda: None)
+        self.Rescan = self.BindButton("button_rescan", self.CallDeviceWatcher)
         self.Baudrate = self.BindComboBox("combo_baudrate")
         self.Clear = self.BindButton("button_clear", self.OnClearClick)
         self.Open: wx.ToggleButton = self.BindWindow(
@@ -131,19 +132,17 @@ class TerminalPanel(BasePanel):
         if clear is not None:
             self.clear = clear
 
+    def OnActivate(self):
+        self.StartDeviceWatcher()
+
+    def OnDeactivate(self):
+        self.StopDeviceWatcher()
+
     def OnShow(self) -> None:
         self.Flash = self.Frame.Panels["flash"]
-        self.Rescan.Bind(wx.EVT_BUTTON, self.Flash.OnRescanClick)
-        # hook and replace OnPortsUpdated
-        self.FlashPortsUpdated = self.Flash.OnPortsUpdated
-        self.Flash.OnPortsUpdated = self.OnPortsUpdated
         # hook and replace OnWorkStopped
         self.FlashWorkStopped = self.Flash.OnWorkStopped
         self.Flash.OnWorkStopped = self.OnWorkStopped
-        # find the PortWatcher thread and change the callback
-        for thread in self.Flash._threads:
-            if isinstance(thread, PortWatcher):
-                thread.on_event = self.OnPortsUpdated
         # copy and replace real methods
         Serial.open_real_terminal = Serial.open
         Serial.close_real_terminal = Serial.close
@@ -198,9 +197,9 @@ class TerminalPanel(BasePanel):
 
     def OnWorkStopped(self, t: BaseThread) -> None:
         verbose(f"OnWorkStopped({type(t)})")
+        if isinstance(t, FlashThread) and self.FlashWorkStopped:
+            self.FlashWorkStopped(t)
         if isinstance(t, FlashThread) and self.auto:
-            if self.FlashWorkStopped:
-                self.FlashWorkStopped(t)
             # flashing ended - open the port automatically
             # also switch and open non-flashing ports
             self.PortOpen()
@@ -275,11 +274,10 @@ class TerminalPanel(BasePanel):
 
     def OnPortsUpdated(self, ports: list[tuple[str, bool, str]]) -> None:
         user_port = self.port or self.delayed_port
-        if self.FlashPortsUpdated:
-            self.FlashPortsUpdated(ports)
-        items: list[str] = self.Flash.Port.GetStrings()
+        items = [port[2] for port in ports]
         items.insert(0, "Same as for flashing")
         self.Port.Set(items)
+        self.ports = ports
         self.port = user_port
         self.delayed_port = None
         self.DoUpdate()
@@ -356,23 +354,24 @@ class TerminalPanel(BasePanel):
 
     @property
     def port(self) -> str | None:
-        if self.Port.GetSelection() in [wx.NOT_FOUND, 0] or not self.Flash:
+        if self.Port.GetSelection() in [wx.NOT_FOUND, 0]:
             return None
-        return self.Flash.ports[self.Port.GetSelection() - 1][0]
+        return self.ports[self.Port.GetSelection() - 1][0]
 
     @port.setter
     def port(self, value: str | None) -> None:
         if value is None:
             self.Port.SetSelection(0)
-        elif self.Flash:
-            for port, _, description in self.Flash.ports:
+        else:
+            for port, _, description in self.ports:
                 if value == port:
                     self.Port.SetValue(description)
                     self.DoUpdate(self.Port)
                     return
             # not found, revert to first option
             # self.port = None
-        self.delayed_port = value
+            self.DoUpdate(self.Port)
+            self.delayed_port = value
 
     @property
     def real_port(self) -> str | None:
