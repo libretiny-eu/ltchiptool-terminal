@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ltchiptool-terminal"
-version = "1.3.0"
+version = "1.4.0"
 description = "Serial terminal plugin for ltchiptool"
 authors = ["Kuba Szczodrzyński <kuba@szczodrzynski.pl>"]
 license = "MIT"
