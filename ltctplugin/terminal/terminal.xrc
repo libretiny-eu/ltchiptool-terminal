@@ -54,10 +54,12 @@
 				<border>5</border>
 				<object class="wxComboBox" name="combo_baudrate">
 					<content>
+						<item>4800</item>
 						<item>9600</item>
 						<item>19200</item>
 						<item>38400</item>
 						<item>57600</item>
+						<item>74880</item>
 						<item>115200</item>
 						<item>230400</item>
 						<item>460800</item>
@@ -65,8 +67,9 @@
 						<item>1000000</item>
 						<item>1200000</item>
 						<item>1500000</item>
+						<item>2000000</item>
 					</content>
-					<selection>4</selection>
+					<selection>6</selection>
 				</object>
 			</object>
 			<object class="sizeritem">
