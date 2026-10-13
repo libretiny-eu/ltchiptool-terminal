@@ -18,11 +18,9 @@ from ltctplugin.terminal.work import TerminalThread
 
 
 class SerialMixin(Serial):
-    def open_real_terminal(self):
-        ...
+    def open_real_terminal(self): ...
 
-    def close_real_terminal(self):
-        ...
+    def close_real_terminal(self): ...
 
 
 class SerialHook:
@@ -317,7 +315,7 @@ class TerminalPanel(BasePanel, DevicesBase):
         self.Text.AppendText(text)
 
     def OnControlData(self, data: bytes) -> None:
-        if not (data.startswith(b"\x1B[") and data.endswith(b"m")):
+        if not (data.startswith(b"\x1b[") and data.endswith(b"m")):
             return
         data = data[2:-1]
         try:

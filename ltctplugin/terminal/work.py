@@ -39,7 +39,7 @@ class TerminalThread(BaseThread):
             if not data:
                 continue
 
-            if b"\x1B" not in data and self.control is None:
+            if b"\x1b" not in data and self.control is None:
                 # no escape char, and not during a command
                 self.on_serial_data(data)
                 continue
